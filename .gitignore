@@ -1,25 +1,15 @@
-# Build system & Gradle caches
+# Build outputs & Gradle caches
 .gradle/
 build/
-*/build/
+**/build/
 .cxx/
-*/.cxx/
+**/.cxx/
 .idea/
 .vs/
+/curseforge_key.txt
+
+# Local machine settings & sensitive keys
 local.properties
 *.jks
 *.keystore
-
-# Exclude application source code (Keeps code 100% private & protected)
-/app_kx/
-/glfw/
-/mojoexec/
-/sdl/
-/NoBlocklist/
-/forge_installer/
-/*.gradle
-/build.gradle
-/settings.gradle
-/gradle/
-/gradlew
-/gradlew.bat
+!**/debug.keystore

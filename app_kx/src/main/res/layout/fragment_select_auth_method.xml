@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent"
+    android:paddingHorizontal="@dimen/fragment_padding_medium">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/liquid_glass_bg_top"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingVertical="@dimen/padding_extra_extra_large">
+
+        <Button
+            android:id="@+id/button_microsoft_authentication"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/auth_select_microsoft"
+            android:background="@drawable/liquid_glass_bg_top"
+            android:textColor="@color/primary_text"
+            android:textSize="@dimen/_12ssp"
+            android:layout_marginHorizontal="@dimen/_25sdp"
+            android:layout_marginBottom="@dimen/_20sdp"
+            app:layout_constraintTop_toTopOf="parent"
+            />
+
+        <Button
+            android:id="@+id/button_elyby_authentication"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/auth_select_elyby"
+            android:background="@drawable/liquid_glass_bg_top"
+            android:textColor="@color/primary_text"
+            android:textSize="@dimen/_12ssp"
+            android:layout_marginHorizontal="@dimen/_25sdp"
+            android:layout_marginTop="@dimen/_20sdp"
+            app:layout_constraintTop_toBottomOf="@+id/button_microsoft_authentication" />
+
+        <Button
+            android:id="@+id/button_local_authentication"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/auth_select_local"
+            android:background="@drawable/liquid_glass_bg_top"
+            android:textColor="@color/primary_text"
+            android:textSize="@dimen/_12ssp"
+            android:layout_marginHorizontal="@dimen/_25sdp"
+            android:layout_marginTop="@dimen/_20sdp"
+            app:layout_constraintTop_toBottomOf="@+id/button_elyby_authentication" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</FrameLayout>

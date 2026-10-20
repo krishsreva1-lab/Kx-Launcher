@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app2="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    app:key=""
+    >
+
+    <com.kx.launcher.prefs.BackButtonPreference />
+
+    <PreferenceCategory
+        android:title="@string/preference_category_main_categories"
+        >
+
+        <Preference
+            android:key="video_screen_setting"
+            android:title="@string/preference_video_title"
+            android:summary="@string/preference_video_description"
+            android:fragment="com.kx.launcher.prefs.screens.LauncherPreferenceVideoFragment"
+            android:icon="@drawable/ic_px_image"
+            />
+
+        <Preference
+            android:key="control_screen_setting"
+            android:title="@string/preference_control_title"
+            android:summary="@string/preference_control_description"
+            android:fragment="com.kx.launcher.prefs.screens.LauncherPreferenceControlFragment"
+            android:icon="@drawable/ic_px_gamepad"
+            />
+
+        <Preference
+            android:key="java_screen_setting"
+            android:title="@string/preference_java_title"
+            android:summary="@string/preference_java_description"
+            android:fragment="com.kx.launcher.prefs.screens.LauncherPreferenceJavaFragment"
+            android:icon="@drawable/ic_px_java"
+            />
+
+        <Preference
+            android:key="misc_screen_setting"
+            android:title="@string/preference_misc_title"
+            android:summary="@string/preference_misc_description"
+            android:fragment="com.kx.launcher.prefs.screens.LauncherPreferenceMiscellaneousFragment"
+            android:icon="@drawable/ic_px_alt_sliders"
+            />
+
+
+        <Preference
+            android:key="experimental_screen_setting"
+            android:title="@string/preference_experimental_title"
+            android:summary="@string/preference_experimental_description"
+            android:fragment="com.kx.launcher.prefs.screens.LauncherPreferenceExperimentalFragment"
+            android:icon="@drawable/ic_px_experiment"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Quick Actions">
+        <Preference
+            android:key="action_custom_controls"
+            android:title="Custom Controls"
+            android:icon="@drawable/ic_px_gamepad"/>
+
+        <Preference
+            android:key="action_install_jar"
+            android:title="Install .jar (Mods/Forge)"
+            android:icon="@drawable/ic_px_file_dl"/>
+
+        <Preference
+            android:key="action_open_gamedir"
+            android:title="Open Game Directory"
+            android:icon="@drawable/ic_px_folder"/>
+
+        <Preference
+            android:key="action_share_logs"
+            android:title="Share Logs"
+            android:icon="@drawable/ic_px_sharelog"/>
+    </PreferenceCategory>
+
+    <SwitchPreferenceCompat
+        android:title="@string/preference_force_english_title"
+        android:key="force_english"
+        android:summary="@string/preference_force_english_description"
+        android:icon="@drawable/ic_px_translate"/>
+
+    <Preference
+        android:title="@string/preference_ask_for_notification_title"
+        android:summary="@string/preference_ask_for_notification_description"
+        android:key="notification_permission_request"
+        android:icon="@drawable/ic_px_bell"
+        />
+
+
+
+
+
+</PreferenceScreen>

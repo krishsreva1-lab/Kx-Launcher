@@ -1,0 +1,27 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        google()
+    }
+}
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.10.0'
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "https://jitpack.io" }
+    }
+}
+
+rootProject.name='Kx Launcher'
+include ':app_kx'
+
+include ':forge_installer'
+include ':NoBlocklist'
+include ':glfw:jni_bindings'
+include ':mojoexec:jni_bindings'
+include ':sdl:jni_bindings'
