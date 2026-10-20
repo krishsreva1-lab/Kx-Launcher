@@ -1,0 +1,65 @@
+<Window
+    x:Class="KxLauncher.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Kx Launcher">
+
+    <!-- The window's SystemBackdrop (Mica / Acrylic) is set in code-behind.
+         The root grid stays transparent so the glass shows through. -->
+    <Grid Padding="32" RowSpacing="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Orientation="Horizontal" Spacing="16">
+            <Image Source="Assets/kx.png" Width="48" Height="48" />
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Kx Launcher" Style="{StaticResource TitleTextBlockStyle}" />
+                <TextBlock x:Name="StatusText" Text="Loading versions…"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Opacity="0.7" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Glass card -->
+        <Border Grid.Row="1" CornerRadius="16" Padding="24"
+                BorderThickness="1"
+                BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}">
+            <Grid RowSpacing="16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ComboBox x:Name="TypeFilter" Width="160" SelectedIndex="0"
+                              SelectionChanged="TypeFilter_SelectionChanged">
+                        <ComboBoxItem Content="Releases" Tag="release" />
+                        <ComboBoxItem Content="Snapshots" Tag="snapshot" />
+                        <ComboBoxItem Content="Old beta" Tag="old_beta" />
+                        <ComboBoxItem Content="Old alpha" Tag="old_alpha" />
+                    </ComboBox>
+                    <ComboBox x:Name="JavaBox" Width="360" PlaceholderText="Java runtime" />
+                </StackPanel>
+
+                <ListView x:Name="VersionList" Grid.Row="1"
+                          SelectionMode="Single"
+                          SelectionChanged="VersionList_SelectionChanged" />
+            </Grid>
+        </Border>
+
+        <!-- Footer -->
+        <Grid Grid.Row="2">
+            <TextBlock x:Name="SelectionText" VerticalAlignment="Center" Opacity="0.7"
+                       Text="Select a version" />
+            <Button x:Name="PlayButton" HorizontalAlignment="Right"
+                    Style="{StaticResource AccentButtonStyle}"
+                    Padding="40,10" Content="Play" IsEnabled="False"
+                    Click="PlayButton_Click" />
+        </Grid>
+    </Grid>
+</Window>
