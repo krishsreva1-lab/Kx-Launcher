@@ -1,0 +1,8 @@
+[submodule "glfw"]
+	path = glfw
+[submodule "mojoexec"]
+	path = mojoexec
+[submodule "sdl"]
+	path = sdl
+[submodule "NoBlocklist"]
+	path = NoBlocklist
