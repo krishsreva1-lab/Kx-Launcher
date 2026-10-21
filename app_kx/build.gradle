@@ -29,8 +29,7 @@ def getCFApiKey = {
     if(curseforgeKeyFile.canRead() && curseforgeKeyFile.isFile()) {
         return curseforgeKeyFile.text
     }
-    logger.warn('BUILD: You have no CurseForge key, the curseforge api will get disabled !')
-    return "DUMMY"
+    return '$2a$10$bL4bIL5pUWqfcO7KQnt93e.O64FiLTBRR72E3.B/R9p9p9p9p9p9p'
 }
 
 configurations {

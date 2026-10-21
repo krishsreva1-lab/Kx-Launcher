@@ -63,7 +63,17 @@ public class CurseforgeApi implements ModpackApi{
 
         HashMap<String, Object> params = new HashMap<>();
         params.put("gameId", CURSEFORGE_MC_GAME_ID);
-        params.put("classId", searchFilters.isModpack ? CURSEFORGE_MODPACK_CLASS_ID : CURSEFORGE_MOD_CLASS_ID);
+        int classId;
+        if (searchFilters.isModpack || searchFilters.searchType == SearchFilters.TYPE_MODPACK) {
+            classId = CURSEFORGE_MODPACK_CLASS_ID;
+        } else if (searchFilters.searchType == SearchFilters.TYPE_RESOURCE_PACK) {
+            classId = 12;
+        } else if (searchFilters.searchType == SearchFilters.TYPE_SHADER) {
+            classId = 6552;
+        } else {
+            classId = CURSEFORGE_MOD_CLASS_ID;
+        }
+        params.put("classId", classId);
         params.put("searchFilter", searchFilters.name);
         params.put("sortField", CURSEFORGE_SORT_RELEVANCY);
         params.put("sortOrder", "desc");

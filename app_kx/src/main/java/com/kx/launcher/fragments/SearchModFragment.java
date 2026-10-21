@@ -216,6 +216,16 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
             TextView mSelectedVersion = dialog.findViewById(R.id.search_mod_selected_mc_version_textview);
             Button mSelectVersionButton = dialog.findViewById(R.id.search_mod_mc_version_button);
             Button mApplyButton = dialog.findViewById(R.id.search_mod_apply_filters);
+            android.widget.Spinner mCategorySpinner = dialog.findViewById(R.id.search_mod_category_spinner);
+
+            if (mCategorySpinner != null) {
+                String[] categories = new String[]{"Mods", "Modpacks", "Resource / Texture Packs", "Shaders"};
+                android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
+                        requireContext(), android.R.layout.simple_spinner_dropdown_item, categories
+                );
+                mCategorySpinner.setAdapter(adapter);
+                mCategorySpinner.setSelection(mSearchFilters.searchType);
+            }
 
             assert mSelectVersionButton != null;
             assert mSelectedVersion != null;
@@ -229,6 +239,10 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
 
             // Apply the new settings
             mApplyButton.setOnClickListener(v -> {
+                if (mCategorySpinner != null) {
+                    mSearchFilters.searchType = mCategorySpinner.getSelectedItemPosition();
+                    mSearchFilters.isModpack = (mSearchFilters.searchType == SearchFilters.TYPE_MODPACK);
+                }
                 mSearchFilters.mcVersion = mSelectedVersion.getText().toString();
                 searchMods(mSearchEditText.getText().toString());
                 dialogInterface.dismiss();
