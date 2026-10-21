@@ -273,6 +273,19 @@ public class ModItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 mExtendedErrorTextView.setVisibility(View.GONE);
                 mVersionAdapter.setObjects(Arrays.asList(detailedItem.versionNames));
                 mExtendedSpinner.setAdapter(mVersionAdapter);
+                // Pre-select the newest version made for the Minecraft version of the selected instance
+                try {
+                    com.kx.launcher.instances.Instance instance = com.kx.launcher.instances.Instances.loadSelectedInstance();
+                    if(instance != null && !detailedItem.isModpack) {
+                        for(int i = 0; i < detailedItem.mcVersionNames.length; i++) {
+                            if(com.kx.launcher.modding.modpacks.api.ContentInstaller.instanceMatchesMcVersion(
+                                    instance.versionId, detailedItem.mcVersionNames[i])) {
+                                mExtendedSpinner.setSelection(i);
+                                break;
+                            }
+                        }
+                    }
+                } catch (RuntimeException ignored) {}
             } else {
                 closeDetailedView();
                 setInstallEnabled(false);

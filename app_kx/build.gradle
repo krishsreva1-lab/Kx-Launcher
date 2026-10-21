@@ -24,12 +24,20 @@ def getVersionName = {
 
 def getCFApiKey = {
     String key = System.getenv("CURSEFORGE_API_KEY")
-    if(key != null) return key
-    File curseforgeKeyFile = new File("./curseforge_key.txt")
-    if(curseforgeKeyFile.canRead() && curseforgeKeyFile.isFile()) {
-        return curseforgeKeyFile.text
+    if(key != null && !key.trim().isEmpty()) return key.trim()
+    // Look in the repo root first, then next to this build.gradle, then the working directory
+    List<File> candidates = [
+            rootProject.file("curseforge_key.txt"),
+            project.file("curseforge_key.txt"),
+            new File("./curseforge_key.txt")
+    ]
+    for(File candidate : candidates) {
+        if(candidate.canRead() && candidate.isFile()) {
+            String fileKey = candidate.text.trim()
+            if(!fileKey.isEmpty()) return fileKey
+        }
     }
-    return '$2a$10$bL4bIL5pUWqfcO7KQnt93e.O64FiLTBRR72E3.B/R9p9p9p9p9p9p'
+    return 'DUMMY'
 }
 
 configurations {

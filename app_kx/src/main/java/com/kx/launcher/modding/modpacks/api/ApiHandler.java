@@ -21,6 +21,8 @@ import java.util.Objects;
 
 @SuppressWarnings("unused")
 public class ApiHandler {
+    /** Modrinth requires a unique, identifiable User-Agent; CurseForge is happy with one too */
+    public static final String USER_AGENT = "KxLauncher/1.2.0 (github.com/krishsreva1-lab/Kx-Launcher)";
     public final String baseUrl;
     public final Map<String, String> additionalHeaders;
 
@@ -60,10 +62,13 @@ public class ApiHandler {
         Log.d("ApiHandler", url);
         try {
             HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(30000);
+            conn.setRequestProperty("User-Agent", USER_AGENT);
+            conn.setRequestProperty("Accept", "application/json");
             addHeaders(conn, headers);
             InputStream inputStream = conn.getInputStream();
             String data = Tools.read(inputStream);
-            Log.d(ApiHandler.class.toString(), data);
             inputStream.close();
             conn.disconnect();
             return data;
@@ -83,6 +88,7 @@ public class ApiHandler {
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setRequestProperty("Accept", "application/json");
+            conn.setRequestProperty("User-Agent", USER_AGENT);
             addHeaders(conn, headers);
             conn.setDoOutput(true);
 

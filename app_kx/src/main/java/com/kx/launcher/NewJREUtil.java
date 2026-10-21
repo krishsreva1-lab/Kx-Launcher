@@ -19,13 +19,19 @@ import com.kx.launcher.utils.jre.RuntimeSelectionException;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 public class NewJREUtil {
     private static final String DOWNLOAD_URL = "https://pojavlauncherteam.github.io/jre-download/";
+    private static final String MIRROR_BASE_URL = "https://github.com/MojoLauncher/android-openjdk-build-multiarch/releases/download/rolling/";
     
     private static String getRemoteRuntimeVersion(InternalRuntime internalRuntime) throws IOException{
         return DownloadUtils.downloadString(DOWNLOAD_URL+internalRuntime.path+"/version");
@@ -51,13 +57,87 @@ public class NewJREUtil {
             Log.i("NewJreUtil", "Failed to get remote runtime version", exc);
             // We failed to get the version of the runtime available on the web server.
             // Let's just hope that we have an internal version installed in that case.
-            if(installed_runtime_version == null)
+            if(installed_runtime_version == null) {
+                // Nothing installed and the main server doesn't have it (e.g. Java 25): use the mirror
+                if(installFromMirror(internalRuntime)) return;
                 throw new RuntimeSelectionException(RuntimeSelectionException.RUNTIME_STATE_INTERNAL_RUNTIME_MISSING, internalRuntime.majorVersion);
+            }
             return;
         }
         // this implicitly checks for null, so it will unpack the runtime even if we don't have one installed
-        if(!remote_runtime_version.equals(installed_runtime_version)) unpackInternalRuntime(assetManager, internalRuntime, remote_runtime_version);
+        if(!remote_runtime_version.equals(installed_runtime_version)) {
+            try {
+                unpackInternalRuntime(assetManager, internalRuntime, remote_runtime_version);
+            } catch (RuntimeSelectionException e) {
+                // Main server install failed and nothing is installed yet: try the mirror before giving up
+                if(installed_runtime_version == null && installFromMirror(internalRuntime)) return;
+                throw e;
+            }
+        }
         writeLastUpdateTime(internalRuntime);
+    }
+
+    /**
+     * Fallback installer: downloads the prebuilt jreXX-pojav.zip (universal + per-arch binpacks + version)
+     * from the MojoLauncher release page and installs it as the given internal runtime.
+     * @return true if the runtime was installed successfully
+     */
+    private static boolean installFromMirror(InternalRuntime internalRuntime) {
+        if(internalRuntime.mirrorUrl == null) return false;
+        File zipCache = null, universalCache = null, platformCache = null;
+        try {
+            zipCache = File.createTempFile("jre-mirror-", ".zip", Tools.DIR_CACHE);
+            universalCache = File.createTempFile("jre-mirror-", "-universal", Tools.DIR_CACHE);
+            platformCache = File.createTempFile("jre-mirror-", "-platform", Tools.DIR_CACHE);
+
+            DownloadUtils.downloadFileMonitored(
+                    internalRuntime.mirrorUrl, zipCache, new byte[8192],
+                    new DownloaderProgressWrapper(R.string.downloading_java_runtime_uni, ProgressLayout.UNPACK_RUNTIME)
+            );
+
+            String platformBinFile = "bin-" + archAsString(Tools.DEVICE_ARCHITECTURE) + ".tar.xz";
+            String binpackVersion;
+            try (ZipFile zipFile = new ZipFile(zipCache)) {
+                ZipEntry versionEntry = zipFile.getEntry("version");
+                ZipEntry universalEntry = zipFile.getEntry("universal.tar.xz");
+                ZipEntry platformEntry = zipFile.getEntry(platformBinFile);
+                if(versionEntry == null || universalEntry == null || platformEntry == null) {
+                    Log.e("NewJreUtil", "Mirror archive is missing files for " + platformBinFile);
+                    return false;
+                }
+                binpackVersion = Tools.read(zipFile.getInputStream(versionEntry)).trim();
+                extractEntry(zipFile.getInputStream(universalEntry), universalCache);
+                extractEntry(zipFile.getInputStream(platformEntry), platformCache);
+            }
+
+            try (FileInputStream universal = new FileInputStream(universalCache);
+                 FileInputStream platform = new FileInputStream(platformCache)) {
+                MultiRTUtils.installRuntimeNamedBinpack(universal, platform, internalRuntime.name, binpackVersion);
+                MultiRTUtils.postPrepare(internalRuntime.name);
+                MultiRTUtils.forceReread(internalRuntime.name);
+            }
+            writeLastUpdateTime(internalRuntime);
+            return true;
+        } catch (IOException e) {
+            Log.e("NewJreUtil", "Mirror install failed for " + internalRuntime.name, e);
+            return false;
+        } finally {
+            ProgressLayout.clearProgress(ProgressLayout.UNPACK_RUNTIME);
+            if(zipCache != null && zipCache.isFile()) //noinspection ResultOfMethodCallIgnored
+                zipCache.delete();
+            if(universalCache != null && universalCache.isFile()) //noinspection ResultOfMethodCallIgnored
+                universalCache.delete();
+            if(platformCache != null && platformCache.isFile()) //noinspection ResultOfMethodCallIgnored
+                platformCache.delete();
+        }
+    }
+
+    private static void extractEntry(InputStream in, File out) throws IOException {
+        try (InputStream input = in; OutputStream output = new FileOutputStream(out)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
+        }
     }
 
     private static class RuntimeDownloaderVerifier {
@@ -225,16 +305,18 @@ public class NewJREUtil {
     }
 
     private enum InternalRuntime {
-        JRE_17(17, "Internal-17", "components/jre-new"),
-        JRE_21(21, "Internal-21", "components/jre-21"),
-        JRE_25(25, "Internal-21", "components/jre-21");
+        JRE_17(17, "Internal-17", "components/jre-new", null),
+        JRE_21(21, "Internal-21", "components/jre-21", null),
+        JRE_25(25, "Internal-25", "components/jre-25", MIRROR_BASE_URL + "jre25-pojav.zip");
         public final int majorVersion;
         public final String name;
         public final String path;
-        InternalRuntime(int majorVersion, String name, String path) {
+        public final String mirrorUrl;
+        InternalRuntime(int majorVersion, String name, String path, String mirrorUrl) {
             this.majorVersion = majorVersion;
             this.name = name;
             this.path = path;
+            this.mirrorUrl = mirrorUrl;
         }
     }
 

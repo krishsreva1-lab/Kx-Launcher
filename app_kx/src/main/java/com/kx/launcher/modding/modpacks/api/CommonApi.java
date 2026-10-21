@@ -36,7 +36,7 @@ public class CommonApi implements ModpackApi {
 
     public CommonApi(String curseforgeApiKey) {
         mModrinthApi = new ModrinthApi();
-        if ("DUMMY".equals(curseforgeApiKey)) {
+        if (!isUsableCurseforgeKey(curseforgeApiKey)) {
             mCurseforgeApi = null;
             mModpackApis = new ModpackApi[]{mModrinthApi};
         } else {
@@ -45,8 +45,40 @@ public class CommonApi implements ModpackApi {
         }
     }
 
+    /** The key placeholder shipped in older build.gradle files (and an empty key) can never work */
+    private static boolean isUsableCurseforgeKey(String key) {
+        if (key == null) return false;
+        key = key.trim();
+        if (key.length() < 20 || "DUMMY".equals(key)) return false;
+        return !key.contains("p9p9p9p9");
+    }
+
+    /**
+     * Search all sources. If a multi-word query finds nothing (for example "patrix x32", where packs
+     * are listed as "32x"), retry once without the resolution words.
+     */
     @Override
     public SearchResult searchMod(SearchFilters searchFilters, SearchResult previousPageResult) {
+        SearchResult result = searchModInternal(searchFilters, previousPageResult);
+        if (previousPageResult == null && searchFilters.name != null
+                && (result == null || result.results == null || result.results.length == 0)) {
+            String simplified = searchFilters.name
+                    .replaceAll("(?i)\\b(x\\d{1,4}|\\d{1,4}x\\d{0,4})\\b", " ")
+                    .replaceAll("\\s+", " ").trim();
+            if (!simplified.isEmpty() && !simplified.equalsIgnoreCase(searchFilters.name.trim())) {
+                SearchFilters retryFilters = new SearchFilters();
+                retryFilters.searchType = searchFilters.searchType;
+                retryFilters.isModpack = searchFilters.isModpack;
+                retryFilters.mcVersion = searchFilters.mcVersion;
+                retryFilters.name = simplified;
+                SearchResult retry = searchModInternal(retryFilters, null);
+                if (retry != null && retry.results != null && retry.results.length > 0) return retry;
+            }
+        }
+        return result;
+    }
+
+    private SearchResult searchModInternal(SearchFilters searchFilters, SearchResult previousPageResult) {
         CommonApiSearchResult commonApiSearchResult = (CommonApiSearchResult) previousPageResult;
         // If there are no previous page results, create a new array. Otherwise, use the one from the previous page
         SearchResult[] results = commonApiSearchResult == null ?
@@ -117,12 +149,15 @@ public class CommonApi implements ModpackApi {
     @Override
     public ModDetail getModDetails(ModItem item) {
         Log.i("CommonApi", "Invoking getModDetails on item.apiSource="+item.apiSource +" item.title="+item.title);
-        return getModpackApi(item.apiSource).getModDetails(item);
+        ModpackApi api = getModpackApi(item.apiSource);
+        return api == null ? null : api.getModDetails(item);
     }
 
     @Override
     public LoaderInstaller installModpack(ModDetail modDetail, int selectedVersion) throws IOException {
-        return getModpackApi(modDetail.apiSource).installModpack(modDetail, selectedVersion);
+        ModpackApi api = getModpackApi(modDetail.apiSource);
+        if (api == null) throw new IOException("This source is not available (missing CurseForge API key)");
+        return api.installModpack(modDetail, selectedVersion);
     }
 
     public LoaderInstaller installLocalModpack(String modpackName, File modpackFile, String icon) throws IOException {
@@ -141,7 +176,7 @@ public class CommonApi implements ModpackApi {
         }
     }
 
-    private @NonNull ModpackApi getModpackApi(int apiSource) {
+    private ModpackApi getModpackApi(int apiSource) {
         switch (apiSource) {
             case Constants.SOURCE_MODRINTH:
                 return mModrinthApi;

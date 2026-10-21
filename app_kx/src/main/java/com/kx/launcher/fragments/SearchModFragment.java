@@ -114,6 +114,9 @@ public class SearchModFragment extends Fragment implements ModItemAdapter.Search
         super(R.layout.fragment_mod_search);
         mSearchFilters = new SearchFilters();
         mSearchFilters.isModpack = true;
+        // Keep the category in sync with isModpack, otherwise the filter spinner shows "Mods"
+        // while the results are actually modpacks
+        mSearchFilters.searchType = SearchFilters.TYPE_MODPACK;
     }
 
     @Override

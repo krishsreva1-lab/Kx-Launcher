@@ -12,15 +12,21 @@ public class ModDetail extends ModItem {
     public String[] versionUrls;
     /* SHA 1 hashes, null if a hash is unavailable */
     public String[] versionHashes;
+    /* Optional extras used when installing a single file (mod / resource pack / shader) */
+    public String[] versionIds;
+    public String[] fileNames;
     public ModDetail(ModItem item, String[] versionNames, String[] mcVersionNames, String[] versionUrls, String[] hashes) {
         super(item.apiSource, item.isModpack, item.id, item.title, item.description, item.imageUrl);
         this.versionNames = versionNames;
         this.mcVersionNames = mcVersionNames;
         this.versionUrls = versionUrls;
         this.versionHashes = hashes;
+        this.contentType = item.contentType;
 
         // Add the mc version to the version model
         for (int i=0; i<versionNames.length; i++){
+            if (versionNames[i] == null) versionNames[i] = "?";
+            if (mcVersionNames[i] == null) mcVersionNames[i] = "?";
             if (!versionNames[i].contains(mcVersionNames[i]))
                 versionNames[i] += " - " + mcVersionNames[i];
         }

@@ -25,6 +25,8 @@ import com.kx.launcher.modding.modpacks.models.ModDetail;
 import com.kx.launcher.modding.modpacks.models.ModItem;
 import com.kx.launcher.modding.modpacks.models.SearchFilters;
 import com.kx.launcher.modding.modpacks.models.SearchResult;
+import com.kx.launcher.instances.Instance;
+import com.kx.launcher.instances.Instances;
 import com.kx.launcher.utils.FileUtils;
 import com.kx.launcher.utils.GsonJsonUtils;
 import com.kx.launcher.utils.ZipUtils;
@@ -35,6 +37,9 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.zip.ZipFile;
 
@@ -88,29 +93,95 @@ public class CurseforgeApi implements ModpackApi{
         if(dataArray == null) return null;
         JsonObject paginationInfo = response.getAsJsonObject("pagination");
         ArrayList<ModItem> modItemList = new ArrayList<>(dataArray.size());
+        int contentType = searchFilters.isModpack ? SearchFilters.TYPE_MODPACK : searchFilters.searchType;
         for(int i = 0; i < dataArray.size(); i++) {
-            JsonObject dataElement = dataArray.get(i).getAsJsonObject();
-            JsonElement allowModDistribution = dataElement.get("allowModDistribution");
-            // Gson automatically casts null to false, which leans to issues
-            // So, only check the distribution flag if it is non-null
-            if(!allowModDistribution.isJsonNull() && !allowModDistribution.getAsBoolean()) {
-                Log.i("CurseforgeApi", "Skipping modpack "+dataElement.get("name").getAsString() + " because curseforge sucks");
-                continue;
+            try {
+                JsonObject dataElement = dataArray.get(i).getAsJsonObject();
+                JsonElement allowModDistribution = dataElement.get("allowModDistribution");
+                // The flag may be missing or null; only skip when CurseForge explicitly says "false"
+                if(allowModDistribution != null && !allowModDistribution.isJsonNull() && !allowModDistribution.getAsBoolean()) {
+                    Log.i("CurseforgeApi", "Skipping "+safeString(dataElement, "name")+" because distribution is disabled");
+                    continue;
+                }
+                String logoUrl = "";
+                JsonElement logo = dataElement.get("logo");
+                if(logo != null && logo.isJsonObject()) {
+                    logoUrl = safeString(logo.getAsJsonObject(), "thumbnailUrl");
+                    if(logoUrl.isEmpty()) logoUrl = safeString(logo.getAsJsonObject(), "url");
+                }
+                String modId = safeString(dataElement, "id");
+                if(modId.isEmpty()) continue;
+                modItemList.add(new ModItem(Constants.SOURCE_CURSEFORGE, contentType, modId,
+                        safeString(dataElement, "name"), safeString(dataElement, "summary"), logoUrl));
+            } catch (RuntimeException e) {
+                Log.w("CurseforgeApi", "Skipping a malformed search entry", e);
             }
-            ModItem modItem = new ModItem(Constants.SOURCE_CURSEFORGE,
-                    searchFilters.isModpack,
-                    dataElement.get("id").getAsString(),
-                    dataElement.get("name").getAsString(),
-                    dataElement.get("summary").getAsString(),
-                    dataElement.getAsJsonObject("logo").get("thumbnailUrl").getAsString());
-            modItemList.add(modItem);
         }
         if(curseforgeSearchResult == null) curseforgeSearchResult = new CurseforgeSearchResult();
         curseforgeSearchResult.results = modItemList.toArray(new ModItem[0]);
-        curseforgeSearchResult.totalResultCount = paginationInfo.get("totalCount").getAsInt();
+        curseforgeSearchResult.totalResultCount = paginationInfo != null && paginationInfo.has("totalCount")
+                ? paginationInfo.get("totalCount").getAsInt() : modItemList.size();
         curseforgeSearchResult.previousOffset += dataArray.size();
         return curseforgeSearchResult;
 
+    }
+
+    private static String safeString(JsonObject object, String key) {
+        if(object == null || !object.has(key)) return "";
+        JsonElement element = object.get(key);
+        if(element == null || element.isJsonNull() || !element.isJsonPrimitive()) return "";
+        return element.getAsString();
+    }
+
+    /** CurseForge returns a null downloadUrl for some files, in that case build the CDN link */
+    private static String resolveFileUrl(JsonObject file) {
+        String url = safeString(file, "downloadUrl");
+        if(!url.isEmpty()) return url;
+        long fileId = file.has("id") && !file.get("id").isJsonNull() ? file.get("id").getAsLong() : 0;
+        String fileName = safeString(file, "fileName");
+        if(fileId == 0 || fileName.isEmpty()) return "";
+        return String.format("https://edge.forgecdn.net/files/%s/%s/%s", fileId/1000, fileId % 1000, fileName);
+    }
+
+    private static String findMcVersion(JsonObject file) {
+        JsonArray gameVersions = file.has("gameVersions") && file.get("gameVersions").isJsonArray() ? file.getAsJsonArray("gameVersions") : null;
+        if(gameVersions == null) return null;
+        for(JsonElement jsonElement : gameVersions) {
+            String gameVersion = jsonElement.getAsString();
+            if(sMcVersionPattern.matcher(gameVersion).matches()) return gameVersion;
+        }
+        return null;
+    }
+
+    /** 1 Forge, 4 Fabric, 5 Quilt, 6 NeoForge, 0 unknown */
+    private static int findLoaderType(JsonObject file) {
+        JsonArray gameVersions = file.has("gameVersions") && file.get("gameVersions").isJsonArray() ? file.getAsJsonArray("gameVersions") : null;
+        if(gameVersions == null) return 0;
+        for(JsonElement jsonElement : gameVersions) {
+            switch (jsonElement.getAsString().toLowerCase(java.util.Locale.ROOT)) {
+                case "neoforge": return 6;
+                case "fabric": return 4;
+                case "quilt": return 5;
+                case "forge": return 1;
+            }
+        }
+        return 0;
+    }
+
+    private static String loaderNames(JsonObject file) {
+        JsonArray gameVersions = file.has("gameVersions") && file.get("gameVersions").isJsonArray() ? file.getAsJsonArray("gameVersions") : null;
+        StringBuilder builder = new StringBuilder();
+        if(gameVersions != null) {
+            for(JsonElement jsonElement : gameVersions) {
+                String value = jsonElement.getAsString();
+                String lower = value.toLowerCase(java.util.Locale.ROOT);
+                if(lower.equals("forge") || lower.equals("fabric") || lower.equals("neoforge") || lower.equals("quilt")) {
+                    if(builder.length() > 0) builder.append(", ");
+                    builder.append(value);
+                }
+            }
+        }
+        return builder.toString();
     }
 
     @Override
@@ -122,37 +193,102 @@ public class CurseforgeApi implements ModpackApi{
             index = getPaginatedDetails(allModDetails, index, item.id);
         }
         if(index == CURSEFORGE_PAGINATION_ERROR) return null;
-        int length = allModDetails.size();
-        String[] versionNames = new String[length];
-        String[] mcVersionNames = new String[length];
-        String[] versionUrls = new String[length];
-        String[] hashes = new String[length];
-        for(int i = 0; i < allModDetails.size(); i++) {
-            JsonObject modDetail = allModDetails.get(i);
-            versionNames[i] = modDetail.get("displayName").getAsString();
 
-            JsonElement downloadUrl = modDetail.get("downloadUrl");
-            versionUrls[i] = downloadUrl.getAsString();
+        ArrayList<String> versionNames = new ArrayList<>(), mcVersionNames = new ArrayList<>(),
+                versionUrls = new ArrayList<>(), hashes = new ArrayList<>(), ids = new ArrayList<>(), fileNames = new ArrayList<>();
+        for(JsonObject modDetail : allModDetails) {
+            String url = resolveFileUrl(modDetail);
+            if(url.isEmpty()) continue; // not downloadable
 
-            JsonArray gameVersions = modDetail.getAsJsonArray("gameVersions");
-            for(JsonElement jsonElement : gameVersions) {
-                String gameVersion = jsonElement.getAsString();
-                if(!sMcVersionPattern.matcher(gameVersion).matches()) {
-                    continue;
-                }
-                mcVersionNames[i] = gameVersion;
-                break;
+            String name = safeString(modDetail, "displayName");
+            if(name.isEmpty()) name = safeString(modDetail, "fileName");
+            if(!item.isModpack && item.contentType == SearchFilters.TYPE_MOD) {
+                String loaders = loaderNames(modDetail);
+                if(!loaders.isEmpty()) name += " [" + loaders + "]";
             }
-
-            hashes[i] = getSha1FromModData(modDetail);
+            versionNames.add(name);
+            versionUrls.add(url);
+            String mc = findMcVersion(modDetail);
+            mcVersionNames.add(mc != null ? mc : "?");
+            hashes.add(getSha1FromModData(modDetail));
+            ids.add(safeString(modDetail, "id"));
+            fileNames.add(safeString(modDetail, "fileName"));
         }
-        return new ModDetail(item, versionNames, mcVersionNames, versionUrls, hashes);
+        if(versionNames.isEmpty()) return null;
+        ModDetail detail = new ModDetail(item, versionNames.toArray(new String[0]), mcVersionNames.toArray(new String[0]),
+                versionUrls.toArray(new String[0]), hashes.toArray(new String[0]));
+        detail.versionIds = ids.toArray(new String[0]);
+        detail.fileNames = fileNames.toArray(new String[0]);
+        return detail;
     }
 
     @Override
     public LoaderInstaller installModpack(ModDetail modDetail, int selectedVersion) throws IOException{
-        //TODO considering only modpacks for now
+        if(!modDetail.isModpack) {
+            installSingleContent(modDetail, selectedVersion);
+            return null;
+        }
         return ModpackInstaller.downloadModpack(modDetail, selectedVersion, this::installCurseforgeZip);
+    }
+
+    /** Mods, resource packs and shaders: download into the selected instance (+ required dependencies) */
+    private void installSingleContent(ModDetail detail, int selectedVersion) throws IOException {
+        List<ContentInstaller.Entry> entries = new ArrayList<>();
+        entries.add(new ContentInstaller.Entry(detail.versionUrls[selectedVersion],
+                detail.fileNames != null ? detail.fileNames[selectedVersion] : null,
+                detail.versionHashes[selectedVersion]));
+
+        if(detail.contentType == SearchFilters.TYPE_MOD && detail.versionIds != null) {
+            try {
+                long modId = Long.parseLong(detail.id);
+                long fileId = Long.parseLong(detail.versionIds[selectedVersion]);
+                Set<Long> visited = new HashSet<>();
+                visited.add(modId);
+                Instance instance = Instances.loadSelectedInstance();
+                collectDependencies(modId, fileId, instance != null ? instance.versionId : null, visited, entries, 0);
+            } catch (RuntimeException e) {
+                Log.w("CurseforgeApi", "Dependency resolution failed, installing only the requested file", e);
+            }
+        }
+        ContentInstaller.install(detail.title, detail.contentType, entries);
+    }
+
+    private void collectDependencies(long modId, long fileId, String instanceVersionId, Set<Long> visited,
+                                     List<ContentInstaller.Entry> entries, int depth) {
+        if(depth > 3 || entries.size() > 25) return;
+        JsonObject file = getFile(modId, fileId);
+        if(file == null || !file.has("dependencies") || !file.get("dependencies").isJsonArray()) return;
+
+        String mcVersion = findMcVersion(file);
+        JsonArray gameVersions = file.has("gameVersions") && file.get("gameVersions").isJsonArray() ? file.getAsJsonArray("gameVersions") : null;
+        if(gameVersions != null) {
+            for(JsonElement gv : gameVersions) {
+                if(ContentInstaller.instanceMatchesMcVersion(instanceVersionId, gv.getAsString())) { mcVersion = gv.getAsString(); break; }
+            }
+        }
+        int loaderType = findLoaderType(file);
+
+        for(JsonElement dependencyElement : file.getAsJsonArray("dependencies")) {
+            JsonObject dependency = dependencyElement.getAsJsonObject();
+            // relationType 3 = required dependency
+            if(!dependency.has("relationType") || dependency.get("relationType").getAsInt() != 3) continue;
+            long depModId = dependency.get("modId").getAsLong();
+            if(!visited.add(depModId)) continue;
+
+            HashMap<String, Object> query = new HashMap<>();
+            if(mcVersion != null) query.put("gameVersion", mcVersion);
+            if(loaderType != 0) query.put("modLoaderType", loaderType);
+            query.put("pageSize", 1);
+            JsonObject response = mApiHandler.get("mods/" + depModId + "/files", query, JsonObject.class);
+            JsonArray data = GsonJsonUtils.getJsonArraySafe(response, "data");
+            if(data == null || data.size() == 0) continue;
+            JsonObject depFile = data.get(0).getAsJsonObject();
+            String url = resolveFileUrl(depFile);
+            if(url.isEmpty()) continue;
+            entries.add(new ContentInstaller.Entry(url, safeString(depFile, "fileName"), getSha1FromModData(depFile)));
+            if(depFile.has("id") && !depFile.get("id").isJsonNull())
+                collectDependencies(depModId, depFile.get("id").getAsLong(), instanceVersionId, visited, entries, depth + 1);
+        }
     }
 
     public LoaderInstaller installLocalModpack(String modpackName, File modpackFile, String icon) throws IOException {
@@ -171,7 +307,8 @@ public class CurseforgeApi implements ModpackApi{
         Log.i("CurseforgeApi", "filtering...");
         for(int i = 0; i < data.size(); i++) {
             JsonObject fileInfo = data.get(i).getAsJsonObject();
-            if(fileInfo.get("isServerPack").getAsBoolean()) continue;
+            JsonElement serverPack = fileInfo.get("isServerPack");
+            if(serverPack != null && !serverPack.isJsonNull() && serverPack.getAsBoolean()) continue;
             objectList.add(fileInfo);
         }
         Log.i("CurseforgeApi", "pag_end");
