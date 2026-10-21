@@ -38,6 +38,13 @@ public class LauncherPreferenceFragment extends PreferenceFragmentCompat impleme
     }
 
     private void setupQuickActions() {
+        Preference searchMods = findPreference("action_search_mods");
+        if (searchMods != null) {
+            searchMods.setOnPreferenceClickListener(p -> {
+                com.kx.launcher.Tools.swapFragment(requireActivity(), com.kx.launcher.fragments.SearchModFragment.class, com.kx.launcher.fragments.SearchModFragment.TAG, null);
+                return true;
+            });
+        }
         Preference customControls = findPreference("action_custom_controls");
         if (customControls != null) {
             customControls.setOnPreferenceClickListener(p -> {

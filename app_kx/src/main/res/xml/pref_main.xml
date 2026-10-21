@@ -56,6 +56,12 @@
 
     <PreferenceCategory android:title="Quick Actions">
         <Preference
+            android:key="action_search_mods"
+            android:title="Modrinth Mods &amp; Shaders"
+            android:summary="Download &amp; 1-click install Mods, Modpacks, Shaders"
+            android:icon="@drawable/ic_modrinth"/>
+
+        <Preference
             android:key="action_custom_controls"
             android:title="Custom Controls"
             android:icon="@drawable/ic_px_gamepad"/>
